@@ -248,6 +248,27 @@ Console output:
 Full results available at https://blah.us-east-1.elb.amazonaws.com/scans/6526820b-f8e8-47ce-b528-9ed7319873b1
 ```
 
+### Add Test Malware
+
+Now, let's intentionally introduce a test virus file and see what happens.  We have already relaxed the errors above to allow the pipeline to succeed.
+
+__WARNING__: This could trigger the Antivirus Scanner locally if one is running!  Please refer to https://www.eicar.org/?page_id=3950.
+
+```
+make add-eicar-test-malware
+```
+
+This command copies `./eicar/eicar_test_file.com` to `./sample_apps/src/eicar.com`.
+
+Now run `make build-and-deploy-docker-image` to build and deploy the image to trigger the pipeline.
+
+Console Output for `make get-pipeline-stage-result` should (eventually) resemble:
+
+```
+=== Getting trend-mirco-dssc-pipeline stage 'ApproveDeployment' Summary ===
+There are 1 malware issue(s) and 3 critical issue(s) detected. Full results available at https://blah.us-east-1.elb.amazonaws.com/scans/54eeb2a1-3408-4f06-97b4-8fb7211bdef0
+```
+
 ## Clean-Up
 
 Remember to tear everything down to avoid excessive charges in your AWS account.

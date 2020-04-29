@@ -90,7 +90,6 @@ Resources:
               stage_name = 'ApproveDeployment'
               action_name = 'SecurityScanApproval'
               critical_errors_threshold = os.environ.get('CRITICAL_ERRORS_THRESHOLD') or 0
-              high_errors_threshold = os.environ.get('HIGH_ERRORS_THRESHOLD') or 5
 
               pipeline_state = CLIENT.get_pipeline_state(
                 name = pipeline_name
@@ -106,14 +105,14 @@ Resources:
                   break
 
               if token:
-
-                findings = payload['scan']['findings']['vulnerabilities']['total']
+                malware = payload['scan']['findings']['malware']
+                critical_errors = payload['scan']['findings']['vulnerabilities']['total']['critical']
                 view_url = f"{payload['scan']['context']['dssc_url']}/scans/{payload['scan']['id']}"
                 status = None
 
-                if findings['critical'] > int(critical_errors_threshold) or findings['high'] > int(high_errors_threshold):
+                if critical_errors > int(critical_errors_threshold) or malware > 0:
                   status = 'Rejected'
-                  summary = f"There are {findings['critical']} critical issues and {findings['high']} high issues detected. Full results available at {view_url}"
+                  summary = f"There are {malware} malware issue(s) and {critical_errors} critical issue(s) detected. Full results available at {view_url}"
                 else:
                   status = 'Approved'
                   summary = f'Full results available at {view_url}'

@@ -36,7 +36,7 @@ deploy-dssc:
 	@echo "Log into https://${DSSC_URL} using ${DSSC_USER}/${DSSC_PASSWORD}.  You MUST change the password in the UI before any API calls can be made."
 	@echo "It may take a few mintues for DNS to propogate."
 	@echo ""
-	@echo "When the password change in DSSC is complete, run this command: make make deploy-dssc-login NEW_DSSC_PASSWORD=<password>"
+	@echo "When the password change in DSSC is complete, run this command: make deploy-dssc-login NEW_DSSC_PASSWORD=<password>"
 	@echo ""
 
 deploy-dssc-ssm:
@@ -115,7 +115,10 @@ adjust-error-tolerance:
 	@echo "=== Adjusting Webhook Lambda Error Tolerance ==="
 	@aws lambda update-function-configuration --function-name ${WEBHOOK_STACK_NAME} \
 		--region ${REGION} \
-		--environment Variables='{CRITICAL_ERRORS_THRESHOLD=100,HIGH_ERRORS_THRESHOLD=100}'
+		--environment Variables='{CRITICAL_ERRORS_THRESHOLD=100}'
+
+add-eicar-test-malware:
+	cp ./eicar/eicar_test_file.com ./sample_app/src/eicar.com
 
 retrigger-pipeline:
 	@echo "=== Retrigging Pipeline ${PIPELINE_STACK_NAME} ==="
