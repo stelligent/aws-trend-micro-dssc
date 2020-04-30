@@ -61,7 +61,7 @@ This command uses eksctl to create the cluster and two unmanaged nodes in prepar
 
 ### Deploy DSSC
 
-Deploy DSSC to the EKS cluster created previously.
+Deploy DSSC to the EKS cluster created previously.  Once deployed, the default `password` will be changed to allow API access.
 
 ```
 make deploy-dssc
@@ -69,25 +69,13 @@ make deploy-dssc
 
 This command uses helm to deploy DSSC to the cluster.  Detailed instructions are located at https://github.com/deep-security/smartcheck-helm.
 
-There will be instructions output to the console on where and how to login to the DSSC administrative UI.
+There will be instructions output to the console on where and how to login to the DSSC administrative UI but it is not required for this example.
 
-__NOTE__: The DSSC package deploys with a self-signed cert for HTTPS.  You can choose to upload a valid cert, or simply ignore the error.  For this blog and simplicity reasons, we ignored the error in the browser and proceeded to the site.  Refer to Replace Self-Signed Certificate in the DSSC deployment guide.
-
-### Change DSSC Password
-
-DSSC requires you to update the password after installation.  You can’t execute any API calls until the password is changed, and our pipeline will be executing API calls.  Log into the UI and change the password (and don’t forget it!).  You will need the new password in the subsequent step.
-
-![DSSC Change Password Screen](https://github.com/stelligent/aws-trend-micro-dssc/blob/master/docs/dssc_password_change.png)
-
-### Create DSSC SSM Parameters
-
-We have everything we need to connect to DSSC, so now it’s time to store those in AWS Parameter Store (SSM) so the pipeline can communicate with DSSC when it runs.
-
-```
-make deploy-dssc-ssm NEW_DSSC_PASSWORD=<the one you were supposed to remember>
-```
-
-This command will create four parameter store values all prefixed with `/pipeline/example/trendmicro/dssc` to store the URL, username, password, and secret to the DSSC API/UI.  The pipeline will use these values when it runs to initiate scans.
+This command will create four AWS Parameter Store variables, all prefixed with `/pipeline/example/trendmicro/dssc`.
+- username - The DSSC username.
+- password - The newly changed DSSC password.
+- url - The URL for UI/API access.
+- secret - The secret phrase used to sign the X-Scan-Events-Signature header.
 
 ### Create ECR Repository
 
@@ -118,7 +106,8 @@ make deploy-webhook
 ```
 
 This command creates an AWS ApiGateway, AWS Lambda, and an AWS SSM parameter storing the URL to access it.
-The lambda code is in `cloudformation/webhook.yaml`.  This code takes the incoming JSON posted to it from DSSC and simply looks at the  `critical` and `high` errors counts in the JSON.  The code then approves or rejects the `Approve Deployment` pipeline action.  The code also checks the X-Scan-Event-Signature (using the DSSC Secret that was created with the deploy-dssc-ssm command) header to determine if the call is a valid one from DSSC.  A 401 is returned if the signature is invalid.  Refer to [Securing Web Hooks](https://github.com/deep-security/smartcheck-helm/wiki/Secure-web-hooks) for more information.
+
+The lambda code is in `cloudformation/webhook.yaml`.  This code takes the incoming JSON posted to it from DSSC and simply looks at the  `critical` and `high` errors counts in the JSON.  The code then approves or rejects the `Approve Deployment` pipeline action.  The code also checks the X-Scan-Event-Signature (using the DSSC Secret that was created with the deploy-dssc command) header to determine if the call is a valid one from DSSC.  A 401 is returned if the signature is invalid.  Refer to [Securing Web Hooks](https://github.com/deep-security/smartcheck-helm/wiki/Secure-web-hooks) for more information.
 
 ### Create Pipeline
 

@@ -8,13 +8,18 @@ DSSC_SSM_STACK_NAME ?= ${STACK_NAME}-ssm
 ECR_REPOSITORY_IMAGE_URI := $$(aws ecr describe-repositories --query "repositories[?repositoryName=='${ECR_STACK_NAME}'].repositoryUri" --output text)
 ARTIFACT_BUCKET_NAME=$$(aws ssm get-parameter --name /pipeline/example/trendmicro/artifactbucket/name --query "Parameter.Value" --output text)
 PIPELINE_EXECUTION_ID := $$(aws codepipeline get-pipeline-state --name ${PIPELINE_STACK_NAME} --query "stageStates[?stageName=='Source'].latestExecution.pipelineExecutionId" --output text)
+
 DSSC_URL := $$(kubectl get svc proxy -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 DSSC_USER := $$(kubectl get secrets -o jsonpath='{ .data.userName }' deepsecurity-smartcheck-auth | base64 --decode)
-DSSC_PASSWORD := $$(kubectl get secrets -o jsonpath='{ .data.password }' deepsecurity-smartcheck-auth | base64 --decode)
+DSSC_DEFAULT_PASSWORD := $$(kubectl get secrets -o jsonpath='{ .data.password }' deepsecurity-smartcheck-auth | base64 --decode)
 DSSC_SECRET := $$(aws kms generate-random --number-of-bytes 32 --query 'Plaintext' --output text)
+DSSC_NEW_PASSWORD := $$(aws kms generate-random --number-of-bytes 32 --query 'Plaintext' --output text)
+DSSC_SESSION := $$(curl -s -k https://${DSSC_URL}/api/sessions --data "{\"user\":{ \"userID\":\"${DSSC_USER}\",\"password\":\"${DSSC_DEFAULT_PASSWORD}\"}}" -H 'Content-type:application/json')
+
 SSM_URL := $$(aws ssm get-parameter --name /pipeline/example/trendmicro/dssc/url --query "Parameter.Value" --output text)
 SSM_USER := $$(aws ssm get-parameter --name /pipeline/example/trendmicro/dssc/username --query "Parameter.Value" --output text)
 SSM_PASSWORD := $$(aws ssm get-parameter --name /pipeline/example/trendmicro/dssc/password --query "Parameter.Value" --output text)
+
 TOKEN := $$(curl -s -k ${SSM_URL}/api/sessions --data "{\"user\":{ \"userID\":\"${SSM_USER}\",\"password\":\"${SSM_PASSWORD}\"}}" -H 'Content-type:application/json' | jq -r '.token')
 
 deploy-cluster:
@@ -26,21 +31,9 @@ deploy-dssc:
 	@echo "=== Installing Trend Micro Deep Security Smart Check ==="
 	helm install --values ./dssc/overrides.yaml \
 		deepsecurity-smartcheck https://github.com/deep-security/smartcheck-helm/archive/master.tar.gz
-	sleep 5s
-	@echo ""
-	@echo "=== Fetching DSSC Login Information ==="
-	@echo "URL: https://${DSSC_URL}"
-	@echo "User: ${DSSC_USER}"
-	@echo "Password: ${DSSC_PASSWORD}"
-	@echo ""
-	@echo "Log into https://${DSSC_URL} using ${DSSC_USER}/${DSSC_PASSWORD}.  You MUST change the password in the UI before any API calls can be made."
-	@echo "It may take a few mintues for DNS to propogate."
-	@echo ""
-	@echo "When the password change in DSSC is complete, run this command: make deploy-dssc-login NEW_DSSC_PASSWORD=<password>"
-	@echo ""
+	sleep 10s
 
-deploy-dssc-ssm:
-	@echo "=== Creating stack ${DSSC_SSM_STACK_NAME} ==="
+	@echo "=== Storing DSSC Variables in SSM ==="
 	aws cloudformation deploy \
 		--stack-name ${DSSC_SSM_STACK_NAME} \
 		--no-fail-on-empty-changeset \
@@ -49,8 +42,18 @@ deploy-dssc-ssm:
 		--region ${REGION} \
 		--parameter-overrides DeepSecuritySmartCheckURL=https://${DSSC_URL} \
 			DeepSecuritySmartCheckUser=${DSSC_USER} \
-			DeepSecuritySmartCheckPassword=${NEW_DSSC_PASSWORD} \
+			DeepSecuritySmartCheckPassword=${DSSC_NEW_PASSWORD} \
 			DeepSecuritySmartCheckSecret=${DSSC_SECRET}
+
+	@echo "=== Waiting for ${SSM_URL} to become available ==="
+	@while [ $$(curl -w "%{http_code}" -k ${SSM_URL} -o /dev/null -s) -ne 200 ]; do echo ".\c"; sleep 10s; done;
+	@echo ""
+
+	@echo "=== Changing DSSC Password ==="
+	@USER_INFO=${DSSC_SESSION} \
+	SESSION_TOKEN=$$(echo $${USER_INFO} | jq -r '.token') \
+	USER_ID=$$(echo $${USER_INFO} | jq -r '.user.id'); \
+	curl -k -H "Authorization:Bearer $${SESSION_TOKEN}" ${SSM_URL}/api/users/$${USER_ID}/password --data "{\"oldPassword\":\"${DSSC_DEFAULT_PASSWORD}\", \"newPassword\":\"${SSM_PASSWORD}\"}" -H 'Content-type: application/json'
 
 deploy-ecr:
 	@echo "=== Creating stack ${ECR_STACK_NAME} ==="
@@ -154,4 +157,4 @@ get-scan-results:
 
 teardown: teardown-pipeline teardown-webhook teardown-dssc-ssm teardown-ecr teardown-cluster
 
-deploy: deploy-ecr build-and-push-docker-image deploy-webhook deploy-pipeline
+deploy: deploy-cluster deploy-dssc deploy-ecr build-and-push-docker-image deploy-webhook deploy-pipeline
