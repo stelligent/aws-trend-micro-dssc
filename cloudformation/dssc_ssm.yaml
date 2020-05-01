@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'A stack for storing Trend Micro Deep Security Smart Check sensitive information'
+Description: Creates parameters in SSM for Trend Micro Deep Security Smart Check sensitive information.
 
 Parameters:
   DeepSecuritySmartCheckURL:

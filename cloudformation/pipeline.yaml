@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'A Pipeline for testing integration with Trendmicro Deep Security Smart Check.'
+Description: Creates a Pipeline and a CloudWatch event listener for integration with Trendmicro Deep Security Smart Check.
 
 Parameters:
   RepositoryUri:
