@@ -118,7 +118,8 @@ adjust-error-tolerance:
 	@echo "=== Adjusting Webhook Lambda Error Tolerance ==="
 	@aws lambda update-function-configuration --function-name ${WEBHOOK_STACK_NAME} \
 		--region ${REGION} \
-		--environment Variables='{CRITICAL_ERRORS_THRESHOLD=100}'
+		--environment Variables="{CRITICAL_ERRORS_THRESHOLD=100,DSSC_SECRET_SSM=/pipeline/example/trendmicro/dssc/secret}"
+
 
 add-eicar-test-malware:
 	cp ./eicar/eicar_test_file.com ./sample_app/src/eicar.com
