@@ -30,7 +30,7 @@ deploy-cluster:
 deploy-dssc:
 	@echo "=== Installing Trend Micro Deep Security Smart Check ==="
 	helm install --values ./dssc/overrides.yaml \
-		deepsecurity-smartcheck https://github.com/deep-security/smartcheck-helm/archive/master.tar.gz
+		deepsecurity-smartcheck https://github.com/deep-security/smartcheck-helm/archive/1.2.45.tar.gz
 	sleep 10s
 
 	@echo "=== Storing DSSC Variables in SSM ==="
